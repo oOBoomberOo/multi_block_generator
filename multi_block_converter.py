@@ -37,15 +37,37 @@ def convert(nbt_file):
 		result[i] = nested(nbt_file[i])
 	return result
 
+def nested_nbt(data):
+	result = ""
+	if type(data) is nbtlib.tag.Compound:
+		temp = []
+		for key in data:
+			temp.append(key + ":" + nested_nbt(data[key]))
+		result = "{" + ", ".join(temp) + "}"
+	elif type(data) is nbtlib.tag.List:
+		temp = []
+		for i in data:
+			temp.append(nested_nbt(i))
+		result = "[" + ", ".join(temp) + "]"
+	else:
+		result = str(data)
+	return result
+
+def nbt(data):
+	result = ""
+	if "nbt" in data:
+		result = nested_nbt(data["nbt"])
+	return result
+
 def block_state(data):
 	result = ""
 	if "Properties" in data:
-		result = data["Name"] + "["
+		result = "["
 		for state in data["Properties"]:
 			result = result + state + "=" + data["Properties"][state] + ","
 		result = result[:-1] + "]"
 	else:
-		result = data["Name"] + ""
+		result = ""
 	return result
 
 def generate(path):
@@ -61,13 +83,14 @@ def generate(path):
 		out = open(check_path(file.replace(path, "./output").replace(".nbt", ".mcfunction")), "w")
 		f = nbtlib.load(file)
 		data = convert(f)
-		palette = [ block_state(x) for x in data[""]["palette"] ]
+		palette = [ x["Name"] + block_state(x) for x in data[""]["palette"] ]
 		blocks = data[""]["blocks"]
 		out.write(commands['start'] + "\n")
 
 		for block in blocks:
+			nbt_state = nbt(block)
 			line = commands['block'] + "\n"
-			line = line.replace("<x>", str(block["pos"][0])).replace("<y>", str(block["pos"][1])).replace("<z>", str(block["pos"][2])).replace("<block>", str(palette[block["state"]]))
+			line = line.replace("<x>", str(block["pos"][0])).replace("<y>", str(block["pos"][1])).replace("<z>", str(block["pos"][2])).replace("<block>", str(palette[block["state"]]) + nbt_state)
 			out.write(line)
 
 		out.write(commands['end'].replace("<tag>", file.replace(path, "").replace(".nbt", "").replace("\\", ".").replace("/", ".")[1:]) + "\n")
